@@ -7,6 +7,8 @@ import com.game.Util.CollisionCenter;
 import com.game.View.*;
 
 import javax.swing.*;
+import javax.swing.event.MenuEvent;
+import javax.swing.event.MenuListener;
 import java.awt.*;
 import java.awt.event.*;
 
@@ -38,7 +40,7 @@ public class GameHandler extends JFrame implements ActionListener {
     /**
      * Window's height.
      */
-    private static final int HEIGHT = 700;
+    private static final int HEIGHT = 730;
 
     // creatures
 
@@ -82,6 +84,9 @@ public class GameHandler extends JFrame implements ActionListener {
         // main menu initialization
         initMainMenu();
 
+        // bar initialization
+        initMenuBar();
+
         // further installation work
         setVisible(true);
         setResizable(false);
@@ -102,11 +107,13 @@ public class GameHandler extends JFrame implements ActionListener {
         // change the window title
         setTitle("SNAKE [Status: RUNNING]");
 
+        // make a game panel which is 23 pixels below of the frame's start point
         JPanel gamePanel = new JPanel();
-        gamePanel.setBounds(0, 0, WIDTH, HEIGHT);
+        gamePanel.setBounds(0, 23, WIDTH, HEIGHT);
         gamePanel.setLayout(null);
         gamePanel.setBackground(Color.lightGray);
 
+        // create and add creatures
         player = new Player();
 
         platforms = new Platform[4];
@@ -120,7 +127,8 @@ public class GameHandler extends JFrame implements ActionListener {
         gamePanel.add(player);
         setContentPane(gamePanel);
 
-        addMouseAdapter();
+        // add an adapter to control player's actions
+        addMouseAdapter(gamePanel);
     }
 
     /**
@@ -129,7 +137,6 @@ public class GameHandler extends JFrame implements ActionListener {
      */
     private void initMainMenu() {
         isGameStarted = false;
-        initMenuBar();
 
         setTitle("Main Menu");
         Icon icon = new ImageIcon("resources/Logo.png");
@@ -165,17 +172,88 @@ public class GameHandler extends JFrame implements ActionListener {
     }
 
     /**
+     * Pause the game process depending on
+     * the state given as an argument.
+     *
+     * @param state
+     *             true - start game,
+     *             false - pause.
+     */
+    private void pause(boolean state) {
+        if(state) {
+            setTitle("SNAKE [Status: RUNNING]");
+            isGameStarted = true;
+        }
+
+        else {
+            setTitle("SNAKE [Status: PAUSED]");
+            isGameStarted = false;
+        }
+
+        for(CollisionListener creature : CustomStorage.getCollisionListeners())
+            ((Creature) creature).setMovementState(state);
+    }
+
+    /**
      * Initialize the menu bar with its items.
+     * When it's open while the game process,
+     * the game pauses itself and continue after
+     * player deselect the menu either do something
+     * inside of this menu.
      */
     private void initMenuBar() {
         JMenuBar bar = new JMenuBar();
-        bar.setSize(700, 30);
+        setJMenuBar(bar);
 
-        JMenuItem about = new JMenuItem("About");
-        about.addActionListener(e -> JOptionPane.showMessageDialog(this, "Copyright (c) 2014 E. Mozharovsky. All rights reserved. \nThe game is written in Java 8 (jdk_1.8.X).\n\nContact us: mozharovsky@live.com", "About us", JOptionPane.INFORMATION_MESSAGE));
+        JMenu file = new JMenu("File");
+        file.addMenuListener(new MenuListener() {
+            // pause the game
+            @Override
+            public void menuSelected(MenuEvent e) {
+                pause(false);
+            }
 
-        bar.add(about);
-        getContentPane().add(bar);
+            // start the game from the pause point
+            @Override
+            public void menuDeselected(MenuEvent e) {
+                pause(true);
+            }
+
+            // unused
+            @Override
+            public void menuCanceled(MenuEvent e) { }
+        });
+
+        JMenuItem about = new JMenuItem("About me");
+        about.addActionListener(e -> {
+            // pause the game
+            pause(false);
+
+            JOptionPane.showMessageDialog(getContentPane(), "Copyright (c) 2014 E. Mozharovsky. All rights reserved. \nThe game is written in Java 8 (jdk_1.8.X).\n\nContact us: mozharovsky@live.com", "About me", JOptionPane.INFORMATION_MESSAGE);
+
+            // resume the game process
+            pause(true);
+        });
+
+        // other widgets shouldn't be added since they do not provide any
+        // back-game processes
+
+        JMenuItem menu = new JMenuItem("Main menu");
+        menu.addActionListener(e -> {
+            dispose();
+            CustomStorage.clear();
+
+            new GameHandler(getX(), getY()).initMainMenu();
+        });
+
+        JMenuItem close = new JMenuItem("Close game");
+        close.addActionListener(e -> System.exit(0));
+
+        file.add(about);
+        file.add(menu);
+        file.addSeparator();
+        file.add(close);
+        bar.add(file);
     }
 
     /**
@@ -204,8 +282,6 @@ public class GameHandler extends JFrame implements ActionListener {
         restart.setBounds(90, 120, 130, 30);
         restart.setFocusPainted(false);
         restart.addActionListener(e -> {
-            result.dispose();
-
             CustomStorage.clear();
             getContentPane().removeAll();
             repaint();
@@ -220,8 +296,6 @@ public class GameHandler extends JFrame implements ActionListener {
         menu.setBounds(90, 150, 130, 30);
         menu.setFocusPainted(false);
         menu.addActionListener(e -> {
-            result.dispose();
-
             CustomStorage.clear();
             getContentPane().removeAll();
             repaint();
@@ -249,51 +323,37 @@ public class GameHandler extends JFrame implements ActionListener {
      * A way to control playable widget on the window by using
      * a mouse. Create and register a MouseAdapter to listen
      * mouse events.
+     *
+     * @param comp Any JComponent which registers player's control adapter.
      */
-    private void addMouseAdapter() {
-        // a custom implementation of mouse listeners methods via a mouse adapter
+    private void addMouseAdapter(JComponent comp) {
         MouseAdapter adapter = new MouseAdapter() {
-            /**
-             * A state flag. Become true once a player pressed the widget,
-             * so it can be moved on the window.
-             */
             boolean canMove = false;
 
             @Override
             public void mouseDragged(MouseEvent e) {
                 if(canMove) {
-                    // change a cursor type
+                    // visualize interaction with the player's object
                     setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-                    /**
-                     * Compare the previous snapshot of player's widget
-                     * with the current one doing a calculation of the
-                     * movement's vector.
-                     */
-                    if(e.getX() - 20 > player.getX()) {
+                    // a way to detect movement's vector
+                    if(e.getX() - 25 > player.getX()) {
                         player.setVector(Creature.Vector.RIGHT);
                     }
-                    if(e.getX() - 20 < player.getX()) {
+                    if(e.getX() - 25 < player.getX()) {
                         player.setVector(Creature.Vector.LEFT);
                     }
-                    if(e.getY() - 45 < player.getY()) {
+                    if(e.getY() - 25 < player.getY()) {
                         player.setVector(Creature.Vector.UP);
                     }
-                    if(e.getY() - 45 > player.getY()) {
+                    if(e.getY() - 25 > player.getY()) {
                         player.setVector(Creature.Vector.DOWN);
                     }
 
-                    // set the cursor on the center of the player's widget
-                    player.updateCoord(e.getX() - 20, e.getY() - 45);
+                    // set cursor on the middle of the player's model
+                    player.updateCoord(e.getX() - 25, e.getY() - 25);
 
                     // TODO: Print bonus panel + add more score points
-
-                    /**
-                     * If the player's widget is out of allowed scopes
-                     * we paint it on the opposite side.
-                     *
-                     * E.g. DOWN -> UP, LEFT -> RIGHT etc.
-                     */
                     if(player.getX() + player.getWidth() >= 700) {
                         player.updateCoord(player.getX() - 650, player.getY());
                     } else if(player.getX() <= 0) {
@@ -307,26 +367,25 @@ public class GameHandler extends JFrame implements ActionListener {
             }
 
             /**
-             * Check if the cursor set on the center of the widget, and the mouse
-             * is clicked if it is change the canMove flag to true, saying that a
-             * movement is possible.
+             * Check if the clicked area belongs to the player's figure.
+             * If so, then allow coordinates updating.
              *
-             * @param e A mouse event.
+             * @param e A mouse event object.
              */
             @Override
             public void mousePressed(MouseEvent e) {
                 if(e.getX() > player.getX() && e.getX() < player.getX() + player.getWidth() &&
-                        e.getY() > player.getY() + 25 && e.getY() < player.getY() + player.getHeight() + 25) {
+                        e.getY() > player.getY() && e.getY() < player.getY() + player.getHeight()) {
                     canMove = true;
                 }
             }
 
             /**
-             * Check if the mouse is released and if so change the cursor type,
-             * Vector to none and the canMove flag to false, thus any further
-             * movement is not possible.
+             * If the player released its figure the game return
+             * the default cursor type, stops any further movement
+             * detecting and sets player's vector of movement as NONE.
              *
-             * @param e A mouse event.
+             * @param e A mouse event object.
              */
             @Override
             public void mouseReleased(MouseEvent e) {
@@ -336,9 +395,9 @@ public class GameHandler extends JFrame implements ActionListener {
             }
         };
 
-        // add the created adapter as a MouseListener & MouseMotionListener
-        addMouseListener(adapter);
-        addMouseMotionListener(adapter);
+        // add installed adapter as a listener for mouse
+        comp.addMouseListener(adapter);
+        comp.addMouseMotionListener(adapter);
     }
 
     /**
@@ -349,7 +408,7 @@ public class GameHandler extends JFrame implements ActionListener {
      */
     @Override
     public void actionPerformed(ActionEvent ev) {
-        if(!player.canMove() && isGameStarted) {
+        if(!player.getMovementState() && isGameStarted) {
             showResultMenu();
             timer.stop();
         }

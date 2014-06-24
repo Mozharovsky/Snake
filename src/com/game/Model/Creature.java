@@ -23,7 +23,7 @@ public abstract class Creature extends JPanel implements CollisionListener {
     /**
      * A flag that indicates if further movement possible or not.
      */
-    private boolean canMove = true;
+    private boolean movementState = true;
 
     /**
      * The current movement's vector.
@@ -67,9 +67,12 @@ public abstract class Creature extends JPanel implements CollisionListener {
      * when a collision detected.
      *
      * @see com.game.View.CollisionListener
+     * @param state A state-flag
+     *                          true - continue movement,
+     *                          false - stop movement.
      */
-    public void stop() {
-        canMove = false;
+    public void setMovementState(boolean state) {
+        movementState = state;
     }
 
     /**
@@ -80,8 +83,8 @@ public abstract class Creature extends JPanel implements CollisionListener {
      *                                 true - moves,
      *                                 false - is being stopped.
      */
-    public boolean canMove() {
-        return canMove;
+    public boolean getMovementState() {
+        return movementState;
     }
 
     /**
@@ -111,7 +114,7 @@ public abstract class Creature extends JPanel implements CollisionListener {
      */
     @Override
     public final void collisionOccurred(CollisionEvent ev) {
-        stop();
+        setMovementState(false);
     }
 
     /**

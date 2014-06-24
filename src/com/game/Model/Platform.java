@@ -221,7 +221,7 @@ public final class Platform extends Creature implements ActionListener {
      */
     @Override
     public void updateCoord(int x, int y) {
-        if(canMove()) {
+        if(getMovementState()) {
             setBounds(x, y, WIDTH, HEIGHT);
             repaint();
         }

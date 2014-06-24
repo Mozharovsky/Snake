@@ -97,7 +97,7 @@ public final class Player extends Creature {
      */
     @Override
     public void updateCoord(int x, int y) {
-        if(canMove()) {
+        if(getMovementState()) {
             setBounds(x, y, WIDTH, HEIGHT);
             setDelay(0); // if we want to make a movement slower
             repaint();   // update the model on the screen
